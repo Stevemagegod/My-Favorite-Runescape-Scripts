@@ -1,0 +1,290 @@
+import org.powerbot.game.api.methods.interactive.Players; 
+import org.powerbot.game.api.util.Filter; 
+import org.powerbot.game.api.wrappers.interactive.Character; 
+import org.powerbot.game.api.wrappers.interactive.Player; 
+  
+/** 
+ * @author LiveRare 
+ * @Date 6 Jan 2013 
+ * @Time 19:27:09 
+ * @File Wilderness.java 
+ */
+  
+public class Wilderness { 
+  
+    /** 
+     * Not in wilderness <br> 
+     * Level 1 wilderness beginning <br> 
+     * Level 2 wilderness beginning (7 spaces from previous) 
+     */
+    public static final int[] UNIQUE_WILDERNESS_LEVELS = { 3524, 3525, 3532 }; 
+  
+    /** 
+     * Y-coordinate of (maximum) level 20 wilderness 
+     */
+    public static final int TELEPORT_FURTHEST_TILE = 3639; 
+  
+    /** 
+     *  
+     * Constructor set to private to exclude this class from being recognised in 
+     * the IDE as an instanceable class 
+     *  
+     * An IllegalAccessError will be thrown should a new instance of this class 
+     * occur 
+     *  
+     * @see {@link java#lang#IllegalAccessError} 
+     *  
+     */
+    private Wilderness() { 
+        throw new IllegalAccessError("Creating instances of "
+                + getClass().getSimpleName() + " is forbidden!"); 
+    } 
+  
+    /** 
+     * Get the Y-Coordinate value that we will have to exhibit to avoid being 
+     * attacked 
+     *  
+     * @param victim 
+     *            Player who will be the potential victim 
+     * @param aggressor 
+     *            Player who will be the potential aggressor 
+     *  
+     * @return Y-Coordinate of the wilderness level <i>victim</i> will need to 
+     *         exhibit to avoid being attacked by <i>aggressor</i> 
+     */
+    public static int getYCoordinateToSafeTileFrom(Player victim, 
+            Player aggressor) { 
+        return Game.validate(victim, aggressor) && !victim.equals(aggressor) ? convertWildernessLevelToYCoordinate(getSafeWildernessLevel( 
+                victim, aggressor)) : -1; 
+    } 
+  
+    /** 
+     * Get the minimum wilderness level required to avoid being attackable for 
+     * the aggressor 
+     *  
+     * @param victim 
+     *            Player who will be the potential victim 
+     * @param aggressor 
+     *            Player who will be the potential aggressor 
+     *  
+     * @return Required wilderness level for the <i>victim</i> to exhibit in 
+     *         order to be safe from <i>aggressor</i> 
+     */
+    public static int getSafeWildernessLevel(Player victim, Player aggressor) { 
+        if (!Game.validate(victim, aggressor) || victim.equals(aggressor)) 
+            return -1; 
+        else if (victim.getLevel() == aggressor.getLevel()) 
+            return 0; 
+        return Math.abs(victim.getLevel() - aggressor.getLevel()) - 1; 
+    } 
+  
+    /** 
+     * @param victim 
+     *            Player who will be the potential victim 
+     * @param aggressors 
+     *            Array of players who may be potential aggressors 
+     *  
+     * @return Required wilderness level for the <i>victim</i> to exhibit in 
+     *         order to be safe from the <i>aggressors</i> 
+     */
+    public static int getSafeWildernesslevel(Player victim, 
+            Player... aggressors) { 
+        if (!Game.validate(victim) || aggressors == null) 
+            return -1; 
+        int i = Integer.MAX_VALUE; 
+        for (Player next : aggressors) { 
+            if (!Game.validate(next) || victim.equals(next)) 
+                continue; 
+            final int l = getSafeWildernessLevel(victim, next); 
+            if (l < i) 
+                i = l; 
+        } 
+        return i; 
+    } 
+  
+    /** 
+     * @param aggressor 
+     *            Player who will be the potential aggressor 
+     *  
+     * @return Required wilderness level to exhibit in order to be safe from 
+     *         <i>aggressor</i> 
+     */
+    public static int getSafeWildernessLevelFrom(Player aggressor) { 
+        return getSafeWildernessLevel(Players.getLocal(), aggressor); 
+    } 
+  
+    /** 
+     * @param aggressor 
+     *            Player who will be the potential aggressor 
+     *  
+     * @return Required wilderness level to exhibit in order to be safe from the 
+     *         <i>aggressors</i> 
+     */
+    public static int getSafeWildernessLevelFrom(Player... aggressors) { 
+        if (aggressors == null) 
+            return -1; 
+        return getSafeWildernesslevel(Players.getLocal(), aggressors); 
+    } 
+  
+    /** 
+     * Find possible threats against me 
+     *  
+     * @return Player array of all the possible threats 
+     */
+    public static Player[] getPossibleThreats() { 
+        return getPossibleThreats(Players.getLocal()); 
+    } 
+  
+    /** 
+     * Find possible threats against victim 
+     *  
+     * @param victim 
+     *            Player to check against 
+     * @return Player array of all the possible threats 
+     */
+    public static Player[] getPossibleThreats(final Player victim) { 
+        if (!Game.validate(victim)) 
+            return null; 
+        return Players.getLoaded(new Filter<Player>() { 
+            @Override
+            public boolean accept(Player arg0) { 
+                return arg0.equals(victim) ? false : isAttackable(arg0); 
+            } 
+        }); 
+    } 
+  
+    /** 
+     * Checks to see if <i>player's</i> Y-coordinate is within teleport-able 
+     * range 
+     *  
+     * @param player 
+     *            Player to check 
+     * @return <tt>Player is within teleport-able distance</tt> 
+     */
+    public static boolean isWithinTeleportRange(Player player) { 
+        return Game.validate(player) ? player.getLocation().getY() <= TELEPORT_FURTHEST_TILE 
+                : false; 
+    } 
+  
+    /** 
+     * Checks to see if our player's Y-coordinate is within teleport-able 
+     * range 
+     *  
+     * @param player 
+     *            Player to check 
+     * @return <tt>Player is within teleport-able distance</tt> 
+     */
+    public static boolean isWithinTeleportRange() { 
+        return Game.validate(Players.getLocal()) ?  Players.getLocal().getLocation().getY() <= TELEPORT_FURTHEST_TILE 
+                : false; 
+    } 
+  
+    /** 
+     * Check to see if the <i>aggressor</i> can attack me 
+     *  
+     * @param aggressor 
+     *            Player that may attack me 
+     * @return <tt>Player can attack me</tt> 
+     */
+    public static boolean isAttackable(Player aggressor) { 
+        return isAttackable(Players.getLocal(), aggressor); 
+    } 
+  
+    /** 
+     * Check to see if player <i>victim</i> can be assulted by player 
+     * <i>aggressor</i> based on the <i>victim's</i> wilderness position 
+     *  
+     * @param victim 
+     *            Player who will be the potential victim 
+     * @param aggressor 
+     *            Player who will be the potential aggressor 
+     * @return <tt>Aggressor can attack victim</tt> 
+     */
+    public static boolean isAttackable(Player victim, Player aggressor) { 
+        if (!Game.validate(victim, aggressor)) 
+            return false; 
+        else if (victim.equals(aggressor) || getWildernessLevel(victim) == 0) 
+            return false; 
+        else if (victim.getLevel() == aggressor.getLevel()) 
+            return true; 
+        final int min = getMinimumAggressorLevel(victim), max = getMaximumAggressorLevel(victim); 
+        return aggressor.getLevel() >= min && aggressor.getLevel() <= max; 
+    } 
+  
+    /** 
+     * Get the <b>mimimum</b> aggressors' level required to assult your player 
+     *  
+     * @param player 
+     *            Player to check 
+     * @return Minimum level required to attack player 
+     */
+    public static int getMinimumAggressorLevel(Player player) { 
+        if (!Game.validate(player)) 
+            return -1; 
+        int i = Math.abs(player.getLevel() - getWildernessLevel(player)); 
+        return i < 3 ? 3 : i; 
+    } 
+  
+    /** 
+     * Get the <b>maximum</b> aggressors' level required to assult your player 
+     *  
+     * @param player 
+     *            Player to check 
+     * @return Maximum level required to attack player 
+     */
+    public static int getMaximumAggressorLevel(Player player) { 
+        if (!Game.validate(player)) 
+            return -1; 
+        return player.getLevel() + getWildernessLevel(player); 
+    } 
+  
+    /** 
+     * @return My wilderness level 
+     */
+    public static int getWildernessLevel() { 
+        return getWildernessLevel(Players.getLocal()); 
+    } 
+  
+    /** 
+     * Get the value of <b>current</b> wilderness level by checking the 
+     * <b>position</b> of the <b>character</b> 
+     *  
+     * @param character 
+     *            Character to check 
+     * @return Level of wilderness they currently occupy 
+     */
+    public static int getWildernessLevel(Character character) { 
+        if (!Game.validate(character)) 
+            return -1; 
+        return convertYCoordinateToWildernessCoordinate(character.getLocation().getY()); 
+    } 
+  
+    /** 
+     * Get the Y-Coordinate for a particular wilderness level 
+     *  
+     * @param level 
+     *            Wilderness level to check 
+     * @return Y-Coordinate of that wilderness level 
+     */
+    public static int convertWildernessLevelToYCoordinate(int level) { 
+        if (level >= 0 || level < UNIQUE_WILDERNESS_LEVELS.length) 
+            return UNIQUE_WILDERNESS_LEVELS[level]; 
+        return UNIQUE_WILDERNESS_LEVELS[2] + (level * 6) + 3; 
+    } 
+  
+    /** 
+     * Get the value of <b>current</b> wilderness level via the <i>ycoordinate</i> 
+     *  
+     * @param ycoordinate 
+     *      Y-coordinate to convert 
+     * @return Level of the wilderness for ycoordinate 
+     */
+    public static int convertYCoordinateToWildernessCoordinate(int ycoordinate) { 
+        for (int i = 0; i != UNIQUE_WILDERNESS_LEVELS.length; i++) { 
+            if (ycoordinate <= UNIQUE_WILDERNESS_LEVELS[i]) 
+                return i; 
+        } 
+        return ((ycoordinate - UNIQUE_WILDERNESS_LEVELS[2]) / 6) + 3; 
+    } 
+  
+} 
